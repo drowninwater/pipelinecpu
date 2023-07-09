@@ -1,42 +1,50 @@
-`include "ctrl_encode_def.v"
 
-// module dm(pc,clk, DMWr, addr, din, dout);
-//    input [31:0] pc;  
-//    input          clk;
-//    input          DMWr;
-//    input  [31:0]   addr;
-//    input  [31:0]  din;
-//    output [31:0]  dout;
+// data memory
+module dm(clk, DMWr, addr, pc, din, dm_ctrl, dout);
+   input          clk;
+   input          DMWr;
+   input  [31:0]  addr;
+   input  [31:0]  pc;
+   input  [31:0]  din;
+   input  [2:0]   dm_ctrl;
+   output [31:0]  dout;
      
-//    reg [31:0] dmem[1024:0];
+   reg [7:0] dmem[1023:0];
+
+   wire [9:0] ar;
+   assign ar = addr;
+
+   always @(posedge clk)
+   begin
+      // $display("addr = %h, ar = %h", addr, ar);
+      if (DMWr) begin     
+         case(dm_ctrl)
+            `dm_word:begin
+               dmem[ar+0] = din[7:0];
+               dmem[ar+1] = din[15:8];
+               dmem[ar+2] = din[23:16];
+               dmem[ar+3] = din[31:24];
+            end
+            `dm_halfword:begin
+               dmem[ar+0] = din[7:0];
+               dmem[ar+1] = din[15:8];
+            end
+            `dm_byte:begin
+               dmem[ar+0] = din[7:0];
+            end
+         endcase
+
+         // dmem[addr[11:2]] <= din;
+//        $display("dmem[0x%8X] = 0x%8X,", addr << 2, din); 
+      //   $display("pc = %h: dataaddr = %h, memdata = %h", pc, {addr[31:2], 2'b00}, din);      
+      end
+   end
    
-//    always @(posedge clk)
-//       if (DMWr) begin
-//          dmem[addr[8:2]] <= din;
-//         //$display("dmem[0x%8X] = 0x%8X,", addr << 2, din); 
-//         //$display("pc = %h: dataaddr = %h, memdata = %h", pc,{addr [31:2],2'b00}, din);
-//       end
-   
-//    assign dout = dmem[addr[8:2]];
+   // assign dout = dmem[addr[11:2]];
+   reg [31:0] douta;
+   always @(*) begin
+      douta <= {dmem[ar+3], dmem[ar+2], dmem[ar+1], dmem[ar+0]};
+   end
+   assign dout = douta;
     
-// endmodule    
-
-module dm(
-    input       clk,
-    input   [3:0] wea,
-    input   [3:0] DMType,
-    input   [31:0] addr_in,
-    input   [31:0] data_in,
-    output reg [31:0] data_out
-);
-
-    reg [7:0] dmem[1023:0];
-    always @(posedge clk) begin
-         
-            
-        
-    end
-    
-
-
-endmodule
+endmodule    

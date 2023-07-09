@@ -9,7 +9,7 @@ module PC( clk, rst, stall, NPCOp, NPC, PC );
   input       [31:0] NPC;
   output reg  [31:0] PC;
 
-  wire PC_PLUS4;
+  wire [31:0] PC_PLUS4;
   assign PC_PLUS4 = PC+4;
 
   always @(posedge clk, posedge rst)

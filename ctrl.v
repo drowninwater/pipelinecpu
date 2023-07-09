@@ -2,9 +2,9 @@
 
 //123
 module ctrl(Op, Funct7, Funct3, Zero,
-            RegWrite, MemWrite,
+            RegWrite, MemWrite,MemRead,
             EXTOp, ALUOp, NPCOp, 
-            ALUSrc, GPRSel, WDSel,DMType
+            ALUSrc, WDSel,DMType
             );
             
    input  [6:0] Op;       // opcode
@@ -14,12 +14,14 @@ module ctrl(Op, Funct7, Funct3, Zero,
    
    output       RegWrite; // control signal for register write
    output       MemWrite; // control signal for memory write
+   output       MemRead;
+   //output       stall;
    output [5:0] EXTOp;    // control signal to signed extension
    output [4:0] ALUOp;    // ALU opertion1‘
    output [2:0] NPCOp;    // next pc operation
    output       ALUSrc;   // ALU source for A
    output [2:0] DMType;
-   output [1:0] GPRSel;   // general purpose register selection
+   //output [1:0] GPRSel;   // general purpose register selection
    output [1:0] WDSel;    // (register) write data selection
    
    
@@ -88,6 +90,7 @@ module ctrl(Op, Funct7, Funct3, Zero,
  assign RegWrite   = rtype | itype_r | i_jalr | i_jal | i_lui | i_auipc | itype_l; // register write
   assign MemWrite   = stype;                           // memory write
   assign ALUSrc     = itype_r | stype | i_jal | i_jalr| i_lui | i_auipc | itype_l;   // ALU B is from instruction immediate
+  assign MemRead =    itype_l;
 
   // signed extension
   // EXT_CTRL_ITYPE_SHAMT 6'b100000
@@ -116,7 +119,7 @@ module ctrl(Op, Funct7, Funct3, Zero,
   // NPC_BRANCH  3'b001
   // NPC_JUMP    3'b010
   // NPC_JALR	   3'b100
-  assign NPCOp[0] = sbtype & Zero;
+  assign NPCOp[0] = sbtype;// & Zero;
   assign NPCOp[1] = i_jal;
 	assign NPCOp[2]=i_jalr;
   

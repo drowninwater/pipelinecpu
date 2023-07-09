@@ -4,10 +4,11 @@
                input         RFWr, 
                input  [4:0]  A1, A2, A3,
                input  [31:0] WD,
-               //input  [31:0] pc, 
+               input  [31:0] pc, 
                output [31:0] RD1, RD2);
 
   reg [31:0] rf[31:0];
+  
 
   integer i;
 
@@ -20,7 +21,7 @@
     else 
       if (RFWr && A3) begin
         rf[A3] <= WD;
-        //$display("x%d = %h", wa3,wd3);
+      $display("pc = %h, x%d = %h",pc, A3 ,WD);
 //        $display("r[00-07]=0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X", 0, rf[1], rf[2], rf[3], rf[4], rf[5], rf[6], rf[7]);
 //        $display("r[08-15]=0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X", rf[8], rf[9], rf[10], rf[11], rf[12], rf[13], rf[14], rf[15]);
 //        $display("r[16-23]=0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X, 0x%8X", rf[16], rf[17], rf[18], rf[19], rf[20], rf[21], rf[22], rf[23]);
