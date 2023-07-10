@@ -34,8 +34,10 @@ module SCPU(
     wire [31:0] NPC;
     wire [2:0] NPCOp;
     wire stall;
-    assign stall  = 1'b0;
-    assign flush = 1'b0;
+    //assign stall  = 1'b0;
+    // assign flush = 1'b0;
+
+
 
 //实例化PC
     PC U_PC(
@@ -54,7 +56,7 @@ module SCPU(
 //实例化IF_ID流水线寄存器
     IF_ID U_IF_ID(
         //input
-        .clk(clk), .rst(reset), .flush(flush),
+        .clk(clk), .rst(reset), .flush(flush), .stall(stall),
         .pc_if_id_in(PC), .instr_if_id_in(inst_in),
         //output
         .pc_if_id_out(pc_if_id_out), .instr_if_id_out(instr_if_id_out)
@@ -66,6 +68,7 @@ module SCPU(
     wire    [4:0] rs1,rs2,rd;
     wire    [31:0] rb_data; // 写回寄存器的数据   line 297 给rb_data赋值
     wire    [31:0] RD1,RD2; //读出寄存器的数据 
+    wire    [31:0] old_RD1, old_RD2;
     RF U_RF(
         //input
         .clk(clk), 
@@ -77,9 +80,13 @@ module SCPU(
         .A3(rd_mem_wb_out),
         .WD(rb_data), 
         //output
-        .RD1(RD1), 
-        .RD2(RD2)
+        .RD1(old_RD1), 
+        .RD2(old_RD2)
     );
+
+    assign RD1 = (rs1 == rd_mem_wb_out)? (rb_data) : old_RD1;
+    assign RD2 = (rs2 == rd_mem_wb_out)? (rb_data) : old_RD2;
+
 
 
 //实例化ctrl
@@ -117,9 +124,7 @@ module SCPU(
     assign rd = instr_if_id_out[11:7];    // rd
 
     //冒险检测
-    // wire stall_a; 
-    // assign stall_a = (MemRead) & ((rd_ex_mem_out == rs1) | (rd_ex_mem_out == rs2));
-    // assign stall = stall_a;
+    assign stall = (MemRead_id_ex_out) & ((rd_id_ex_out == rs1) | (rd_id_ex_out == rs2));
 
 
     ctrl U_ctrl(
@@ -179,6 +184,7 @@ module SCPU(
         .clk(clk),
         .rst(reset),
         .flush(flush),
+        .stall(stall),
         .RegWrite_id_ex_in(RegWrite),
         .MemWrite_id_ex_in(MemWrite),
         .MemRead_id_ex_in(MemRead),
@@ -193,8 +199,8 @@ module SCPU(
         .instr_id_ex_in(instr_if_id_out),
         .imm_id_ex_in(immout),
         .rd_id_ex_in(rd),
-        .rs1_data_id_ex_in(RD1),
-        .rs2_data_id_ex_in(RD2),
+        .rs1_data_id_ex_in(rs1_data_tmp),
+        .rs2_data_id_ex_in(rs2_data_tmp),
         
         //output
         .pc_id_ex_out(pc_id_ex_out),
@@ -219,38 +225,53 @@ module SCPU(
 
 //**********************************************************************
 //Ex stage : adder, ALU, 处理跳转产生flush
-    //EX数据冒险
-    reg fwa,fwb;
-    always @(*) begin
-        if (RegWrite_mem_wb_out & (rd_mem_wb_out) & (rd_mem_wb_out == rs1))begin
-            fwa = 2'b10;
-        end 
-        else begin
-            fwa = 2'b00;
+    //EX&MEM数据冒险检测
+    wire    [31:0] alu_out;
+    wire ex_hz1,ex_hz2; //hz1 for ex hz
+    assign ex_hz1 = RegWrite_id_ex_out & (rd_id_ex_out!=5'b0) & (rd_id_ex_out == rs1) ;
+    assign ex_hz2 = RegWrite_id_ex_out & (rd_id_ex_out!=5'b0) & (rd_id_ex_out == rs2);
+
+    wire mem_hz1,mem_hz2;
+    assign mem_hz1 = (!ex_hz1) & ((RegWrite_ex_mem_out) & (rd_ex_mem_out!=5'b0) & (rd_ex_mem_out == rs1));
+    assign mem_hz2 = (!ex_hz2) & ((RegWrite_ex_mem_out) & (rd_ex_mem_out!=5'b0) & (rd_ex_mem_out == rs2));
+    //根据冒险检测进行数据选择
+    reg [31:0] rs1_data_tmp, rs2_data_tmp;
+
+    wire ex_nld_hz1, ex_nld_hz2;
+    assign ex_nld_hz1 = ex_hz1 & (!MemRead_id_ex_out);
+    assign ex_nld_hz2 = ex_hz2 & (!MemRead_id_ex_out);
+
+    wire [31:0] new_mem_data1,new_mem_data2;
+    assign new_mem_data1 = (WDSel_ex_mem_out[0])? Data_in_new : alu_ex_mem_out;
+    assign new_mem_data2 = (WDSel_ex_mem_out[0])? Data_in_new : alu_ex_mem_out;
+
+
+
+    always @(posedge clk , posedge reset) begin
+        if(reset || flush) begin
+          rs2_data_tmp <= 32'b0;
+          rs1_data_tmp <= 32'b0;
         end
-        if(RegWrite_mem_wb_out & (rd_mem_wb_out) & (rd_mem_wb_out == rs1))begin
-           fwb = 2'b10;
-        end
         else begin
-            fwb = 2'b00;
+          rs1_data_tmp <= (ex_nld_hz1)?alu_out:((mem_hz1)?(new_mem_data1):RD1);
+          rs2_data_tmp <= (ex_nld_hz2)?alu_out:((mem_hz2)?(new_mem_data2):RD2);
+
         end
     end
-    //MEM数据冒险
-    
+
+    // wire [31:0] rs2_data_tmp;
+    // assign rs1_data_tmp = (ex_hz1)?alu_out:((mem_hz1)?(alu_ex_mem_out):RD1);
+    // assign rs2_data_tmp = (ex_hz2)?alu_ex_mem_out:((mem_hz2)?(alu_mem_wb_out):RD2);
 
 
-
-
-   // wire [31:0] rs1_data_tmp,rs2_data_tmp;
    wire [31:0] rs2_imm_tmp;
-   assign rs2_imm_tmp = (ALUSrc_id_ex_out)? imm_id_ex_out : rs2_data_id_ex_out;
+   assign rs2_imm_tmp = (ALUSrc_id_ex_out)? imm_id_ex_out : rs2_data_tmp;
 
     //实例化ALU
     // wire Zero;
-    wire    [31:0] alu_out;
     alu U_ALU(
         //input
-        .A(rs1_data_id_ex_out),
+        .A(rs1_data_tmp),
         .B(rs2_imm_tmp),
         .ALUOp(ALUOp_id_ex_out),
         //.pc_alu_in(pc_id_ex_out),
@@ -279,9 +300,7 @@ module SCPU(
         .NPC(NPC)
     );
     //产生flush信号处理跳转
-    wire flush_a;
-    assign flush_a = (NPCOp_id_ex_out[0] & Zero) | NPCOp_id_ex_out[1] | NPCOp_id_ex_out[2];
-    assign flush = flush_a;
+    assign flush = (NPCOp_id_ex_out[0] & Zero) | NPCOp_id_ex_out[1] | NPCOp_id_ex_out[2];
     
     //实例化EX_MEM寄存器
     wire [31:0] pc_ex_mem_out;
@@ -330,7 +349,7 @@ module SCPU(
         .WDSel_ex_mem_out(WDSel_ex_mem_out)
     );
 
-    assign Data_out = rs2_data_ex_mem_out;
+    assign Data_out = rs2_data_id_ex_out;
     assign mem_w = MemWrite_ex_mem_out;
     assign dm_ctrl = DMType_ex_mem_out;
     //给Addr_out赋值
@@ -375,7 +394,6 @@ module SCPU(
         //input
         .clk(clk),
         .rst(reset),
-        .flush(flush),
         .pc_mem_wb_in(pc_ex_mem_out),
         .rdata_mem_wb_in(Data_in_new),
         .alu_mem_wb_in(alu_ex_mem_out),
@@ -394,9 +412,6 @@ module SCPU(
         .WDSel_mem_wb_out(WDSel_mem_wb_out),
         .DMType_mem_wb_out(DMType_mem_wb_out)
     );
-
-
-       
     assign rb_data_pc = (WDSel_mem_wb_out == `WDSel_FromPC) ? pc_mem_wb_out+4 : alu_mem_wb_out;
     assign rb_data_in = rdata_mem_wb_out;
     assign  rb_data =  (WDSel_mem_wb_out == `WDSel_FromMEM) ? rb_data_in : rb_data_pc;

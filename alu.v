@@ -35,6 +35,10 @@ module alu(A, B, ALUOp, C, Zero, pc_alu_in);
    end // end always
    
    assign Zero = (C == 32'b0);
+   // always @(*)
+   // begin
+   //    $display("%h",C);
+   // end
 //why
 endmodule
     

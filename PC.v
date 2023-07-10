@@ -18,9 +18,9 @@ module PC( clk, rst, stall, NPCOp, NPC, PC );
     else begin 
       if(stall == 1'b1)
         PC <= PC;
-      else if(NPCOp == 3'b000)
-        PC <= PC_PLUS4;
-      else PC <= NPC;
+      else if(NPCOp != 3'b000)
+        PC <= NPC;
+      else PC <= PC_PLUS4;
     end
     
 endmodule

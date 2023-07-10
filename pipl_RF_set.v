@@ -4,6 +4,7 @@ module IF_ID(
     input           clk,
     input           rst,
     input           flush,
+    input           stall,
     input   [31:0] pc_if_id_in,
     input   [31:0] instr_if_id_in,
     output reg [31:0] pc_if_id_out,
@@ -15,9 +16,11 @@ module IF_ID(
         pc_if_id_out <= 32'b0;
         instr_if_id_out <= 32'b0;
     end
-    else begin
-        pc_if_id_out <= pc_if_id_in;
-        instr_if_id_out <= instr_if_id_in;
+    else begin      
+        if(stall!=1'b1) begin
+            pc_if_id_out <= pc_if_id_in;
+            instr_if_id_out <= instr_if_id_in;
+        end
     end
 end
 
@@ -26,6 +29,7 @@ endmodule
 module ID_EX(
     input           clk,
     input           rst,
+    input           stall,
     input           flush,
 
     //控制信号输入，从ctrl送进来的控制信号,初始时所有信号都传递到ID_EX寄存器里面
@@ -83,13 +87,34 @@ module ID_EX(
         RegWrite_id_ex_out <= 1'b0;
         MemWrite_id_ex_out <= 1'b0;
         MemRead_id_ex_out <= 1'b0;
-        EXTOp_id_ex_out <= 5'b0;
+        EXTOp_id_ex_out <= 6'b0;
         ALUOp_id_ex_out <= 5'b0;
         NPCOp_id_ex_out <= 3'b0;
         ALUSrc_id_ex_out <= 1'b0;
         DMType_id_ex_out <= 3'b0;
         //GPRSel_id_ex_out <= 2'b0;
         WDSel_id_ex_out <= 2'b0;
+    end
+    else if(stall == 1'b1)begin
+        //数据信号保持不变
+        pc_id_ex_out <= pc_id_ex_in;
+        instr_id_ex_out <= instr_id_ex_in;
+        imm_id_ex_out <= imm_id_ex_in;
+        rd_id_ex_out <= rd_id_ex_in;
+        rs1_data_id_ex_out <= rs1_data_id_ex_in;
+        rs2_data_id_ex_out <= rs2_data_id_ex_in;
+
+        //清空控制信号
+        RegWrite_id_ex_out <= 1'b0;
+        MemWrite_id_ex_out <= 1'b0;
+        MemRead_id_ex_out <= MemRead_id_ex_in;
+        EXTOp_id_ex_out <= EXTOp_id_ex_in;
+        ALUOp_id_ex_out <= ALUOp_id_ex_in;
+        NPCOp_id_ex_out <= 3'b0;
+        ALUSrc_id_ex_out <= ALUSrc_id_ex_in;
+        DMType_id_ex_out <= DMType_id_ex_in;
+        // GPRSel_id_ex_out <= GPRSel_id_ex_in;
+        WDSel_id_ex_out <= WDSel_id_ex_in;
     end
     else begin
         pc_id_ex_out <= pc_id_ex_in;
@@ -153,7 +178,7 @@ module EX_MEM(
 );
 
     always @(posedge clk, posedge rst) begin
-    if (rst || flush) begin
+    if (rst) begin
         //数据
         pc_ex_mem_out <= 32'b0;
         rd_ex_mem_out <= 5'b0;
@@ -194,7 +219,6 @@ endmodule
 module MEM_WB(
     input       clk,
     input       rst,
-    input       flush,
     //数据输入
     input   [31:0] pc_mem_wb_in,
     input   [31:0] rdata_mem_wb_in,

@@ -16,8 +16,8 @@ module sccomp_tb();
       $dumpfile("wave.vcd");
       $dumpvars(0, xgriscv.U_SCPU);
 
-    //  $readmemh( "Test_37_Instr.dat" , xgriscv.U_imem.RAM); // load instructions into instruction memory
-      $readmemh( "test_br.dat" , xgriscv.U_imem.RAM); // load instructions into instruction memory
+     $readmemh( "Test_37_Instr.dat" , xgriscv.U_imem.RAM); // load instructions into instruction memory
+      // $readmemh( "test_jal.dat" , xgriscv.U_imem.RAM); // load instructions into instruction memory
 
       clk = 1;
       rstn = 1;
@@ -33,7 +33,7 @@ module sccomp_tb();
     #(50) clk = ~clk;
 	   
     if (clk == 1'b1) begin      
-      if ((counter == 100) || (xgriscv.U_SCPU.PC_out=== 32'hxxxxxxxx)) begin
+      if ((counter == 200) || (xgriscv.U_SCPU.PC_out=== 32'hxxxxxxxx)) begin
         $stop;
       end
       else begin
